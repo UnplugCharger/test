@@ -1,23 +1,35 @@
 package processors
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/wangjia184/sortedset"
+)
 
 type DriverRanking struct {
-	// Fill in your properties here
+	AverageRating float64
+	TotalRating  float64
+	TotalTrips int
+	DriverId  string
+	DriverName string
 }
 
-func (*DriverRanking) String() string {
+func (d *DriverRanking) String() string {
 	// Implement this function
-	return ""
+	return d.DriverName
 }
 
 type HotelRanking struct {
-	// Fill in your properties here
+	AverageRating float64
+	TotalRating   float64
+	NoOfTrips     int
+	HotelId       string
+	HotelName     string
 }
 
-func (*HotelRanking) String() string {
+func (h *HotelRanking) String() string {
 	// Implement this function
-	return ""
+	return h.HotelName
 }
 
 type ProcessorInterface interface {
@@ -28,5 +40,7 @@ type ProcessorInterface interface {
 
 func CreateProcessorFromData(data *TripsData, wg *sync.WaitGroup) ProcessorInterface  {
 	// @todo Initialize your processor here
-	return nil
+	
+
+	return NewProcesor(data, wg, sortedset.New(), sortedset.New())
 }

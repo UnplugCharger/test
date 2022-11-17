@@ -2,18 +2,20 @@ package main
 
 import (
 	"fmt"
-	"github.com/brianvoe/gofakeit/v6"
-	"github.com/google/uuid"
 	"golangchallenge/processors"
 	"math/rand"
+	"runtime"
 	"sync"
+
+	"github.com/brianvoe/gofakeit/v6"
+	"github.com/google/uuid"
 )
 
 func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 	data := &processors.TripsData{}
 	// Generate 10000 drivers
 	data.Drivers = make([]*processors.Driver, 0)
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 2; i++ {
 		data.Drivers = append(data.Drivers, &processors.Driver{
 			Id:   uuid.NewString(),
 			Name: gofakeit.Name(),
@@ -21,7 +23,7 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 	}
 	// Generate 100 hotels
 	data.Hotels = make([]*processors.Hotel, 0)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 2; i++ {
 		data.Hotels = append(data.Hotels, &processors.Hotel{
 			Id:   uuid.NewString(),
 			Name: gofakeit.City(),
@@ -32,7 +34,7 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 	go func() {
 		wg.Add(1)
 		// Generate 10000000 trips
-		for i := 0; i < 10000000; i++ {
+		for i := 0; i < 10; i++ {
 			driver := data.Drivers[rand.Intn(len(data.Drivers))]
 			hotel := data.Hotels[rand.Intn(len(data.Hotels))]
 			data.Trips <- &processors.Trip{
@@ -46,13 +48,18 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 				Hotel:        hotel,
 			}
 		}
+		close(data.Trips)
 		wg.Done()
 	}()
 	return data
 }
 
 func main() {
+	var m1, m2 runtime.MemStats
+	runtime.GC()
+    runtime.ReadMemStats(&m1)
 	wg := &sync.WaitGroup{}
+	
 	data := GetTripsData(wg)
 	processor := processors.CreateProcessorFromData(data, wg)
 	err := processor.StartProcessing()
@@ -66,4 +73,7 @@ func main() {
 	fmt.Printf("Top driver found: %s\n", topDriver)
 	topHotel := processor.GetTopRankedHotel()
 	fmt.Printf("Top hotel found: %s\n", topHotel)
+	runtime.ReadMemStats(&m2)
+    fmt.Println("total:", m2.TotalAlloc - m1.TotalAlloc)
+    fmt.Println("mallocs:", m2.Mallocs - m1.Mallocs)
 }
