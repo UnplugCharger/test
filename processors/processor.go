@@ -31,7 +31,7 @@ func NewProcesor (data *TripsData, wg *sync.WaitGroup,
 
 
 func (p *Processor) StartProcessing() error {
-     
+     // My go routines should go here  but I kept on getting nill pointer error
 	for trip := range p.data.Trips {
 		p.processDriverRanking(trip)
 		p.processHotelRanking(trip)

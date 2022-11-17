@@ -15,7 +15,7 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 	data := &processors.TripsData{}
 	// Generate 10000 drivers
 	data.Drivers = make([]*processors.Driver, 0)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 10000; i++ {
 		data.Drivers = append(data.Drivers, &processors.Driver{
 			Id:   uuid.NewString(),
 			Name: gofakeit.Name(),
@@ -23,7 +23,7 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 	}
 	// Generate 100 hotels
 	data.Hotels = make([]*processors.Hotel, 0)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 100; i++ {
 		data.Hotels = append(data.Hotels, &processors.Hotel{
 			Id:   uuid.NewString(),
 			Name: gofakeit.City(),
@@ -34,7 +34,7 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 	go func() {
 		wg.Add(1)
 		// Generate 10000000 trips
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 10000000; i++ {
 			driver := data.Drivers[rand.Intn(len(data.Drivers))]
 			hotel := data.Hotels[rand.Intn(len(data.Hotels))]
 			data.Trips <- &processors.Trip{
