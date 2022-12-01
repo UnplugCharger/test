@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"golangchallenge/processors"
 	"math/rand"
-	"runtime"
 	"sync"
 
 	"github.com/brianvoe/gofakeit/v6"
@@ -55,11 +54,9 @@ func GetTripsData(wg *sync.WaitGroup) *processors.TripsData {
 }
 
 func main() {
-	var m1, m2 runtime.MemStats
-	runtime.GC()
-    runtime.ReadMemStats(&m1)
+
 	wg := &sync.WaitGroup{}
-	
+
 	data := GetTripsData(wg)
 	processor := processors.CreateProcessorFromData(data, wg)
 	err := processor.StartProcessing()
@@ -73,7 +70,5 @@ func main() {
 	fmt.Printf("Top driver found: %s\n", topDriver)
 	topHotel := processor.GetTopRankedHotel()
 	fmt.Printf("Top hotel found: %s\n", topHotel)
-	runtime.ReadMemStats(&m2)
-    fmt.Println("total:", m2.TotalAlloc - m1.TotalAlloc)
-    fmt.Println("mallocs:", m2.Mallocs - m1.Mallocs)
+
 }

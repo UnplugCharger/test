@@ -2,16 +2,14 @@ package processors
 
 import (
 	"sync"
-
-	"github.com/wangjia184/sortedset"
 )
 
 type DriverRanking struct {
 	AverageRating float64
-	TotalRating  float64
-	TotalTrips int
-	DriverId  string
-	DriverName string
+	TotalRating   float64
+	TotalTrips    int
+	DriverId      string
+	DriverName    string
 }
 
 func (d *DriverRanking) String() string {
@@ -38,9 +36,8 @@ type ProcessorInterface interface {
 	GetTopRankedHotel() *HotelRanking
 }
 
-func CreateProcessorFromData(data *TripsData, wg *sync.WaitGroup) ProcessorInterface  {
+func CreateProcessorFromData(data *TripsData, wg *sync.WaitGroup) ProcessorInterface {
 	// @todo Initialize your processor here
-	
 
-	return NewProcesor(data, wg, sortedset.New(), sortedset.New())
+	return NewProcessor(data, wg, make(DriverResults), make(HotelResults))
 }

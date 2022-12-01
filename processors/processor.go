@@ -1,9 +1,8 @@
 package processors
 
 import (
+	"log"
 	"sync"
-
-	"github.com/wangjia184/sortedset"
 )
 
 // Processor should implement ProcessorInterface
@@ -12,16 +11,84 @@ import (
 type Processor struct {
 	data          *TripsData
 	wg            *sync.WaitGroup
-	DriverRanking *sortedset.SortedSet
-	HotelRanking  *sortedset.SortedSet
+	DriverRanking DriverResults
+	HotelRanking  HotelResults
 }
 
-func NewProcesor(data *TripsData, wg *sync.WaitGroup,
-	driverRanking *sortedset.SortedSet, hotelRanking *sortedset.SortedSet) *Processor {
+var mux sync.RWMutex
+
+type DriverResults map[string]*DriverRanking
+type HotelResults map[string]*HotelRanking
+
+func (d DriverResults) AddOrUpdate(driverId string, rank *DriverRanking) {
+	mux.Lock()
+	defer mux.Unlock()
+	d[driverId] = rank
+}
+
+func (h HotelResults) AddOrUpdate(hotelId string, rank *HotelRanking) {
+	mux.Lock()
+	defer mux.Unlock()
+	h[hotelId] = rank
+}
+
+// GetDriverByKey  driver by key
+func (d DriverResults) GetDriverByKey(driverId string) *DriverRanking {
+	currentDriver, ok := d[driverId]
+	if !ok {
+		return nil
+	}
+	return currentDriver
+
+}
+
+// GetHotelByKey  hotel by key
+func (h HotelResults) GetHotelByKey(hotelId string) *HotelRanking {
+	currentHotel, ok := h[hotelId]
+	if !ok {
+		return nil
+	}
+	return currentHotel
+
+}
+
+// PeekHotelMax get the highest ranked hotel so far
+func (h HotelResults) PeekHotelMax() *HotelRanking {
+	var highestRatedSoFar *HotelRanking
+	for _, v := range h {
+		if highestRatedSoFar == nil {
+			highestRatedSoFar = v
+		}
+		if v.AverageRating > highestRatedSoFar.AverageRating {
+			highestRatedSoFar = v
+		}
+	}
+	return highestRatedSoFar
+}
+
+// PeekDriverMax PeekMax Check the  driver with max trips at the moment
+func (d DriverResults) PeekDriverMax() *DriverRanking {
+	var largestSoFar *DriverRanking
+	for _, v := range d {
+		if largestSoFar == nil {
+			largestSoFar = v
+		}
+		if v.AverageRating > largestSoFar.AverageRating {
+			largestSoFar = v
+		}
+
+	}
+	return largestSoFar
+
+}
+
+//NewProcessor creates an instance of the processor
+func NewProcessor(data *TripsData, wg *sync.WaitGroup,
+	dr DriverResults, hotelRanking HotelResults) *Processor {
 	return &Processor{
 		data:          data,
 		wg:            wg,
-		DriverRanking: driverRanking,
+		DriverRanking: dr,
 		HotelRanking:  hotelRanking,
 	}
 }
@@ -39,9 +106,9 @@ func (p *Processor) StartProcessing() error {
 func (p *Processor) processDriverRanking(trip *Trip) {
 	// @todo Implement this function
 	driverId := trip.DriverId
-	ranking := p.DriverRanking.GetByKey(driverId)
+	driverRanking := p.DriverRanking.GetDriverByKey(driverId)
 
-	if ranking == nil {
+	if driverRanking == nil {
 		driverRanking := &DriverRanking{
 			AverageRating: trip.DriverRating,
 			TotalRating:   trip.DriverRating,
@@ -49,34 +116,35 @@ func (p *Processor) processDriverRanking(trip *Trip) {
 			DriverId:      driverId,
 			DriverName:    trip.Driver.Name,
 		}
-		p.DriverRanking.AddOrUpdate(driverId, sortedset.SCORE(trip.DriverRating), driverRanking)
+		p.DriverRanking.AddOrUpdate(driverId, driverRanking)
 		return
 	}
-	driverRanking := ranking.Value.(*DriverRanking)
+
 	driverRanking.TotalRating += trip.DriverRating
 	driverRanking.TotalTrips += 1
 	driverRanking.AverageRating = driverRanking.TotalRating / float64(driverRanking.TotalTrips)
 
-	p.DriverRanking.AddOrUpdate(driverId, sortedset.SCORE(driverRanking.AverageRating), driverRanking)
+	p.DriverRanking.AddOrUpdate(driverId, driverRanking)
 }
 
 func (p *Processor) GetTopRankedDriver() *DriverRanking {
-	topRankNode := p.DriverRanking.PeekMax()
+	allDrivers := len(p.DriverRanking)
+	log.Println("All drivers: ", allDrivers)
+	topRankNode := p.DriverRanking.PeekDriverMax()
 
 	if topRankNode == nil {
 		return nil
 	}
-	topDriver := topRankNode.Value.(*DriverRanking)
 
-	return topDriver
+	return topRankNode
 
 }
 
 func (p *Processor) processHotelRanking(trip *Trip) {
 	hotelId := trip.HotelId
-	ranking := p.HotelRanking.GetByKey(hotelId)
+	hotelRanking := p.HotelRanking.GetHotelByKey(hotelId)
 
-	if ranking == nil {
+	if hotelRanking == nil {
 		hotelRanking := &HotelRanking{
 			AverageRating: trip.HotelRating,
 			TotalRating:   trip.HotelRating,
@@ -84,24 +152,23 @@ func (p *Processor) processHotelRanking(trip *Trip) {
 			HotelId:       hotelId,
 			HotelName:     trip.Hotel.Name,
 		}
-		p.HotelRanking.AddOrUpdate(hotelId, sortedset.SCORE(trip.HotelRating), hotelRanking)
+		p.HotelRanking.AddOrUpdate(hotelId, hotelRanking)
 		return
 	}
-	hotelRanking := ranking.Value.(*HotelRanking)
+
 	hotelRanking.TotalRating += trip.HotelRating
 	hotelRanking.NoOfTrips += 1
 	hotelRanking.AverageRating = hotelRanking.TotalRating / float64(hotelRanking.NoOfTrips)
 
-	p.HotelRanking.AddOrUpdate(hotelId, sortedset.SCORE(hotelRanking.AverageRating), hotelRanking)
+	p.HotelRanking.AddOrUpdate(hotelId, hotelRanking)
 }
 
 func (p *Processor) GetTopRankedHotel() *HotelRanking {
-	topRankNode := p.HotelRanking.PeekMax()
+	topRankNode := p.HotelRanking.PeekHotelMax()
 
 	if topRankNode == nil {
 		return nil
 	}
-	topHotel := topRankNode.Value.(*HotelRanking)
 
-	return topHotel
+	return topRankNode
 }
